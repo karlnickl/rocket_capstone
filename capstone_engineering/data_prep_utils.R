@@ -13,7 +13,7 @@ read_wiki_state_table <- function(path, states_and_fed_dist_only = TRUE) {
   # define the schema of the wikipedia state table
   schema <- cols(
     state_or_region    = col_character(),
-    region_type        = col_factor(NULL),
+    region_type        = readr::col_factor(NULL),
     ISO                = col_character(),
     ANSI_alpha         = col_character(),
     USPS               = col_character(),
@@ -58,24 +58,24 @@ read_wiki_state_table <- function(path, states_and_fed_dist_only = TRUE) {
 read_state_abbreviations <- 
   function(path = paste0("data/pipeline/reference_data/",
                          "state_abbreviations_domestic.csv")) {
-  
-  schema <- cols(
-    state_or_region       = col_character(),
-    region_type           = col_factor(NULL),
-    ISO                   = col_character(),
-    ANSI_alpha            = col_character(),
-    USPS                  = col_character(),
-    USCG                  = col_character(),
-    GPO                   = col_character(),
-    AP                    = col_character(),
-    Otherabbreviations    = col_character(),
-    state_or_region_lower = col_character()
-  )
-  
-  dat <- read_csv(path, col_types = schema)
-  
-  dat
-}
+    
+    schema <- cols(
+      state_or_region       = col_character(),
+      region_type           = readr::col_factor(NULL),
+      ISO                   = col_character(),
+      ANSI_alpha            = col_character(),
+      USPS                  = col_character(),
+      USCG                  = col_character(),
+      GPO                   = col_character(),
+      AP                    = col_character(),
+      Otherabbreviations    = col_character(),
+      state_or_region_lower = col_character()
+    )
+    
+    dat <- read_csv(path, col_types = schema)
+    
+    dat
+  }
 
 # Read in the Raw Sales Order Data into memory  ----
 read_raw_sales <- 
@@ -113,15 +113,15 @@ read_raw_sales <-
     dat <- read_excel(
       path, sheet = "Processed Fruits", 
       col_names = TRUE, col_types = schema, na = c("", "NULL", "  ", "N/A"))
-}
+  }
 
 # Clean City/State Pair (only works for US States and DC). Function  ----
 # returns a list of length 3, corresponding to city, state, and international
 # status. 
 clean_city_state <- function(
   city, state, 
-  state_abbrev_path = paste("data/pipeline/reference_data/",
-                            "state_abbreviations_domestic.csv")
+  state_abbrev_path = paste0("data/pipeline/reference_data/",
+                             "state_abbreviations_domestic.csv")
 ) {
   
   # define two character 'state' string pattern
@@ -154,7 +154,7 @@ clean_city_state <- function(
     city_has_two_char_pattern <- FALSE
     matches_full_state <- FALSE
     
-    } else {
+  } else {
     city_has_two_char_pattern <- str_detect(city, two_char_pattern)
     matches_full_state <- FALSE
     
@@ -165,13 +165,13 @@ clean_city_state <- function(
       if (two_char_is_state) {
         city_class <- "2_dom"
         state_in_city <- two_char
-      
-        } else {
-        city_class <- "int"
-
-      }
-    
+        
       } else {
+        city_class <- "int"
+        
+      }
+      
+    } else {
       matches_full_state <- str_detect(str_to_lower(city), full_state_pattern)
       
       if (matches_full_state) {
@@ -179,8 +179,8 @@ clean_city_state <- function(
         full_state <- str_match(str_to_lower(city), full_state_pattern)[1, 2]
         state_in_city <- state_abbreviations_dat[
           state_abbreviations_dat$state_or_region_lower == full_state, 
-          11
-        ]
+          6
+          ]
       } else {
         city_class <- "unknown"
       }
@@ -216,7 +216,7 @@ clean_city_state <- function(
 }
 
 # Write the clean order-level dataset
-write_sales_data <- function(
+write_clean_sales_data <- function(
   df, 
   dest = "data/clean/clean_tomato_bag_sales.csv"
 ) {
@@ -226,29 +226,41 @@ write_sales_data <- function(
 # Read the Cleaned and integrated Sales Data  ----
 read_clean_sales <- function(path = "data/clean/clean_tomato_bag_sales.csv") {
   
+  month_levels <- c(
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+  )
+  
   schema <- cols(
-    fiscalquartername         = col_character(),
-    FiscalPeriod              = col_character(),
-    FiscalYear                = col_integer(),
-    Company                   = col_character(),
-    Top_Most_BP               = col_character(),
-    BusinessPartner           = col_character(),
-    Item_Number               = col_factor(NULL),
-    Item_Description          = col_character(),
-    Ship_to_State             = col_factor(NULL),
-    Ship_to_City              = col_character(),
-    Quantity                  = col_integer(),
-    Planned_Delivery_Date     = col_date("%Y-%m-%d"),
-    Address_1                 = col_character(),
-    Address_2                 = col_character(),
-    Postal_Code               = col_character(),
-    Budget_Qty                = col_integer(),
-    Forecast_Qty              = col_integer(),
-    Line_of_Business          = col_factor(NULL),
-    domestic_or_international = col_factor(NULL)
+    fiscalquartername          = col_character(),
+    FiscalPeriod               = col_character(),
+    FiscalYear                 = col_integer(),
+    Company                    = col_character(),
+    Top_Most_BP                = col_character(),
+    BusinessPartner            = col_character(),
+    Item_Number                = readr::col_factor(NULL),
+    Item_Description           = col_character(),
+    Ship_to_State              = readr::col_factor(NULL),
+    Ship_to_City               = col_character(),
+    Quantity                   = col_number(),
+    Planned_Delivery_Date      = col_datetime(),
+    Address_1                  = col_character(),
+    Address_2                  = col_character(),
+    Postal_Code                = col_character(),
+    Budget_Qty                 = col_number(),
+    Forecast_Qty               = col_number(),
+    Line_of_Business           = readr::col_factor(NULL),
+    domestic_or_international  = readr::col_factor(NULL),
+    planned_delivery_year      = col_integer(),
+    planned_delivery_month     = readr::col_factor(levels = month_levels,
+                                                   ordered = TRUE),
+    planned_delivery_month_num = col_integer(),
+    planned_delivery_day       = col_integer()
   )
   
   dat <- read_csv(path, col_types = schema)
+  
+  dat$Quantity <- as.integer(dat$Quantity)
   
   dat
 }
