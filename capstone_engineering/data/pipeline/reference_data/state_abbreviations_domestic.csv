@@ -1,0 +1,52 @@
+state_or_region,region_type,ISO,ANSI_alpha,ANSI_numeric,USPS,USCG,GPO,AP,Otherabbreviations,state_or_region_lower
+Alabama,State,US-AL,AL,1,AL,AL,Ala.,Ala.,NA,alabama
+Alaska,State,US-AK,AK,2,AK,AK,Alaska,Alaska,Alas.,alaska
+Arizona,State,US-AZ,AZ,4,AZ,AZ,Ariz.,Ariz.,Az.,arizona
+Arkansas,State,US-AR,AR,5,AR,AR,Ark.,Ark.,NA,arkansas
+California,State,US-CA,CA,6,CA,CF,Calif.,Calif.,"Ca., Cal.",california
+Colorado,State,US-CO,CO,8,CO,CL,Colo.,Colo.,Col.,colorado
+Connecticut,State,US-CT,CT,9,CT,CT,Conn.,Conn.,Ct.,connecticut
+Delaware,State,US-DE,DE,10,DE,DL,Del.,Del.,De.,delaware
+District of Columbia,Federal district,US-DC,DC,11,DC,DC,D.C.,D.C.,Wash. D.C.,district of columbia
+Florida,State,US-FL,FL,12,FL,FL,Fla.,Fla.,"Fl., Flor.",florida
+Georgia,State,US-GA,GA,13,GA,GA,Ga.,Ga.,Geo.,georgia
+Hawaii,State,US-HI,HI,15,HI,HA,Hawaii,Hawaii,H.I.,hawaii
+Idaho,State,US-ID,ID,16,ID,ID,Idaho,Idaho,"Id., Ida.",idaho
+Illinois,State,US-IL,IL,17,IL,IL,Ill.,Ill.,"Il., Ills., Ill's",illinois
+Indiana,State,US-IN,IN,18,IN,IN,Ind.,Ind.,In.,indiana
+Iowa,State,US-IA,IA,19,IA,IA,Iowa,Iowa,"Ia., Ioa.[a]",iowa
+Kansas,State,US-KS,KS,20,KS,KA,Kans.,Kan.,"Ks., Ka.",kansas
+Kentucky,State,US-KY,KY,21,KY,KY,Ky.,Ky.,"Ken., Kent.[b]",kentucky
+Louisiana,State,US-LA,LA,22,LA,LA,La.,La.,NA,louisiana
+Maine,State,US-ME,ME,23,ME,ME,Maine,Maine,Me.,maine
+Maryland,State,US-MD,MD,24,MD,MD,Md.,Md.,NA,maryland
+Massachusetts,State,US-MA,MA,25,MA,MS,Mass.,Mass.,NA,massachusetts
+Michigan,State,US-MI,MI,26,MI,MC,Mich.,Mich.,NA,michigan
+Minnesota,State,US-MN,MN,27,MN,MN,Minn.,Minn.,Mn.,minnesota
+Mississippi,State,US-MS,MS,28,MS,MI,Miss.,Miss.,NA,mississippi
+Missouri,State,US-MO,MO,29,MO,MO,Mo.,Mo.,NA,missouri
+Montana,State,US-MT,MT,30,MT,MT,Mont.,Mont.,NA,montana
+Nebraska,State,US-NE,NE,31,NE,NB,Nebr.,Neb.,NA,nebraska
+Nevada,State,US-NV,NV,32,NV,NV,Nev.,Nev.,Nv.,nevada
+New Hampshire,State,US-NH,NH,33,NH,NH,N.H.,N.H.,NA,new hampshire
+New Jersey,State,US-NJ,NJ,34,NJ,NJ,N.J.,N.J.,N.Jersey,new jersey
+New Mexico,State,US-NM,NM,35,NM,NM,N. Mex.,N.M.,New M.,new mexico
+New York,State,US-NY,NY,36,NY,NY,N.Y.,N.Y.,N. York,new york
+North Carolina,State,US-NC,NC,37,NC,NC,N.C.,N.C.,N. Car.,north carolina
+North Dakota,State,US-ND,ND,38,ND,ND,N. Dak.,N.D.,NoDak,north dakota
+Ohio,State,US-OH,OH,39,OH,OH,Ohio,Ohio,"O., Oh.",ohio
+Oklahoma,State,US-OK,OK,40,OK,OK,Okla.,Okla.,Ok.,oklahoma
+Oregon,State,US-OR,OR,41,OR,OR,Oreg.,Ore.,Or.,oregon
+Pennsylvania,State,US-PA,PA,42,PA,PA,Pa.,Pa.,"Penn., Penna.",pennsylvania
+Rhode Island,State,US-RI,RI,44,RI,RI,R.I.,R.I.,"R.I. & P.P., R. Isl.",rhode island
+South Carolina,State,US-SC,SC,45,SC,SC,S.C.,S.C.,S. Car.,south carolina
+South Dakota,State,US-SD,SD,46,SD,SD,S. Dak.,S.D.,SoDak,south dakota
+Tennessee,State,US-TN,TN,47,TN,TN,Tenn.,Tenn.,NA,tennessee
+Texas,State,US-TX,TX,48,TX,TX,Tex.,Texas,Tx.,texas
+Utah,State,US-UT,UT,49,UT,UT,Utah,Utah,Ut.,utah
+Vermont,State,US-VT,VT,50,VT,VT,Vt.,Vt.,NA,vermont
+Virginia,State,US-VA,VA,51,VA,VA,Va.,Va.,Virg.,virginia
+Washington,State,US-WA,WA,53,WA,WN,Wash.,Wash.,"Wa., Wn.[1]",washington
+West Virginia,State,US-WV,WV,54,WV,WV,W. Va.,W.Va.,"W.V., W. Virg.",west virginia
+Wisconsin,State,US-WI,WI,55,WI,WS,Wis.,Wis.,"Wi., Wisc.",wisconsin
+Wyoming,State,US-WY,WY,56,WY,WY,Wyo.,Wyo.,Wy.,wyoming
