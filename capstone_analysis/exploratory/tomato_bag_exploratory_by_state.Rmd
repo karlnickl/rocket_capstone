@@ -70,6 +70,20 @@ orders_by_state_by_month_dat <- sales_dat %>%
 head(orders_by_state_by_month_dat)
 ```
 
+#### Order Quantity by State and Fulfilling Plant
+```{r}
+orders_by_state_and_plant <- sales_dat %>%
+  filter(domestic_or_international == "domestic") %>%
+  group_by(Ship_to_State, Company) %>%
+  summarise(
+    total_orders        = n(),
+    total_quantity      = sum(Quantity),
+    mean_order_quantity = mean(Quantity),
+    sd_order_quantity   = sd(Quantity)
+  )
+head(orders_by_state_and_plant)
+```
+
 ## Exploratory Plots
 #### Number of Ship-To States per Year
 ```{r}
@@ -190,7 +204,19 @@ grid.arrange(
 )
 ```
 
-
+#### Total Quantity by State and Fulfilling Plant
+```{r}
+orders_by_state_and_plant %>%
+  ggplot(aes(x = Ship_to_State, y = total_quantity, fill = Company)) +
+  geom_bar(position = "dodge", stat = "identity") +
+  scale_y_continuous(
+    name = "Total Order Quantity",
+    label = comma,
+    expand = c(0, 0)
+  ) +
+  ggtitle("Total Quantity by State and Fulfilling Plant") +
+  theme_light()
+```
 
 
 
