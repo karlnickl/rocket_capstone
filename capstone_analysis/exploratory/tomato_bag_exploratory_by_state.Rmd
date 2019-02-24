@@ -8,10 +8,20 @@ output: html_document
 ## Prepare the Environment
 ### Load required libraries
 ```{R}
-library(tidyverse)  # for data manipulation and plotting
 library(scales)  # for graph formatting
+library(tidyverse)  # for data manipulation and plotting
 library(gridExtra)  # for arranging plots
 library(grid)  # for arranging plots
+library(showtext)
+library(directlabels)
+```
+
+```{r}
+# add the Roboto font from Google Fonts
+font_add_google("Roboto", "roboto")
+
+# turn on showtext font usage
+showtext_auto(enable = TRUE)
 ```
 
 ### Load project utilities
@@ -23,10 +33,61 @@ source("../../capstone_engineering/data_prep_utils.R")
 ### Read the data
 ```{r}
 # Path for cleaned sales data
-sales_path <- "../../capstone_engineering/data/clean/clean_tomato_bag_sales.csv"
-  
+sales_path <- "../../capstone_engineering/data/clean/Sales_data_for_Capstone_Project_-_Student_Version_-_v3_CLEAN.csv"
+
+# Read the sales data
+schema = cols(
+  fiscalquartername                 = col_character(),
+  FiscalPeriod                      = col_integer(),
+  FiscalYear                        = col_integer(),
+  Company                           = col_character(),
+  Top_Most_BP                       = col_character(),
+  BusinessPartner                   = col_character(),
+  Item_Number                       = col_character(),
+  Item_Description                  = col_character(),
+  Ship_to_State                     = col_character(),
+  Ship_to_City                      = col_character(),
+  Quantity                          = col_number(),
+  Planned_Delivery_Date             = col_datetime(format = "%Y-%m-%dT%H:%M:%SZ"),
+  Address_1                         = col_character(),
+  Address_2                         = col_character(),
+  Postal_Code                       = col_character(),
+  Budget_Qty                        = col_integer(),
+  Forecast_Qty                      = col_integer(),
+  Line_of_Business                  = col_character(),
+  Ship_to_State_clean               = col_factor(levels = NULL),
+  is_domestic                       = col_logical(),
+  planned_delivery_year             = col_integer(),
+  planned_delivery_month_abbr       = col_factor(
+    levels  = c("Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"),
+    ordered = TRUE  
+  ),
+  planned_delivery_month_num        = col_integer(),
+  planned_delivery_day_of_week_abbr = col_factor(
+    levels  = c("Sun", "Mon", "Tues", "Wed", "Thurs", "Fri", "Sat"),
+    ordered = TRUE
+  ),
+  planned_delivery_day_of_week_num  = col_integer()
+)
+
+sales_dat <- read_csv(
+  file      = sales_path,
+  col_types = schema,
+  na        = c("", "NA", "NULL")
+)
+
 # Read the integrated sales data  ----
-sales_dat <- read_clean_sales(sales_path)
+sales_dat <- sales_dat %>% 
+  mutate(state_is_california = case_when(Ship_to_State == "CA" ~ "CA",
+                                         Ship_to_State != "CA" ~ "Other",
+                                         is.na(Ship_to_State)  ~ "Other"),
+         is_ca_or_dr         = case_when(
+           Ship_to_State %in% c("CA", "DR") ~ "yes",
+           TRUE ~ "no"
+           ),
+         Ship_to_State       = Ship_to_State_clean
+      )
 ```
 
 ### Prepare aggregated data for plotting
@@ -34,17 +95,97 @@ sales_dat <- read_clean_sales(sales_path)
 #### Count of States by Year
 ```{r}
 states_by_year_dat <- sales_dat %>%
-  filter(domestic_or_international == "domestic") %>%
   group_by(planned_delivery_year) %>%
   summarise(state_count = n_distinct(Ship_to_State))
   
 head(states_by_year_dat)
 ```
 
+#### Total Orders by State
+Also extract top states based on order quantity
+```{r}
+orders_by_state <- sales_dat %>%
+  group_by(Ship_to_State) %>%
+  summarise(
+    total_orders        = n(),
+    total_quantity      = sum(Quantity),
+    mean_order_quantity = mean(Quantity),
+    sd_order_quantity   = sd(Quantity)
+  )
+
+top_states <- orders_by_state %>%
+  top_n(5, total_quantity) %>%
+  pull(Ship_to_State)
+
+top_state <- orders_by_state %>%
+  top_n(1, total_quantity) %>%
+  pull(Ship_to_State)
+
+
+
+# classify top states
+sales_dat <- sales_dat %>%
+  mutate(
+    top_state_class = case_when(
+      Ship_to_State == top_state    ~ as.character(Ship_to_State),
+      Ship_to_State %in% top_states ~ "Top 5 States (w/out CA)",
+      TRUE                          ~ "Other"
+    ),
+    graphing_state = case_when(
+      Ship_to_State %in% top_states ~ as.character(Ship_to_State),
+      TRUE                          ~ "Other"
+    )
+  )
+
+orders_by_city <- sales_dat %>%
+  group_by(Ship_to_City) %>%
+  summarise(
+    total_orders        = n(),
+    total_quantity      = sum(Quantity),
+    mean_order_quantity = mean(Quantity),
+    sd_order_quantity   = sd(Quantity)
+  )
+
+top_cities <- orders_by_city %>%
+  top_n(5, total_quantity) %>%
+  pull(Ship_to_City)
+
+top_city <- orders_by_city %>%
+  top_n(1, total_quantity) %>%
+  pull(Ship_to_City)
+
+sales_dat <- sales_dat %>%
+  mutate(
+    top_city_class = case_when(
+      Ship_to_City %in% top_cities ~ "Top 5 Cities",
+      TRUE                          ~ "Other"
+    ),
+    graphing_city = case_when(
+      Ship_to_City %in% top_cities ~ as.character(Ship_to_City),
+      TRUE                          ~ "Other"
+    )
+  )
+  
+# sales data filtered to top states
+top_sales_dat <- sales_dat %>% filter(Ship_to_State %in% top_states)
+top_sales_dat$Ship_to_State <- droplevels(top_sales_dat$Ship_to_State)
+
+# sales data filtered to top states (less California)
+sales_no_ca_dat <- top_sales_dat %>% filter(Ship_to_State != "CA")
+
+orders_by_ca_dat <- sales_dat %>%
+  group_by(state_is_california) %>%
+  summarise(
+    total_orders        = n(),
+    total_quantity      = sum(Quantity),
+    mean_order_quantity = mean(Quantity),
+    sd_order_quantity   = sd(Quantity)
+  )
+```
+
 #### Orders by State and Year
 ```{r}
 orders_by_state_by_year_dat <- sales_dat %>%
-  filter(domestic_or_international == "domestic") %>%
   group_by(Ship_to_State, planned_delivery_year) %>%
   summarise(
     total_orders        = n(),
@@ -55,12 +196,49 @@ orders_by_state_by_year_dat <- sales_dat %>%
 head(orders_by_state_by_year_dat)
 ```
 
+#### Orders by State and Year 
+```{r}
+orders_by_ca_by_year_dat <- sales_dat %>%
+  group_by(state_is_california, planned_delivery_year) %>%
+  summarise(
+    total_orders        = n(),
+    total_quantity      = sum(Quantity),
+    mean_order_quantity = mean(Quantity),
+    sd_order_quantity   = sd(Quantity)
+  )
+orders_by_year_dat <- sales_dat %>% 
+  group_by(planned_delivery_year) %>%
+  summarise(
+    total_orders        = n(),
+    total_quantity      = sum(Quantity),
+    mean_order_quantity = mean(Quantity),
+    sd_order_quantity   = sd(Quantity)
+  ) %>%
+  mutate(state_is_california = "Total")
+orders_by_ca_by_year_dat <- orders_by_ca_by_year_dat %>% 
+  union_all(orders_by_year_dat)
+head(orders_by_ca_by_year_dat)
+```
+
 #### Orders by State by Month
 ```{r}
 # Create a dataframe of orders by state by month
-orders_by_state_by_month_dat <- sales_dat %>%
-  filter(domestic_or_international == "domestic") %>%
+orders_by_state_by_month_dat <- top_sales_dat %>%
   group_by(Ship_to_State, planned_delivery_month) %>%
+  summarise(
+    total_orders        = n(),
+    total_quantity      = sum(Quantity),
+    mean_order_quantity = mean(Quantity),
+    sd_order_quantity   = sd(Quantity)
+  )
+head(orders_by_state_by_month_dat)
+```
+
+#### Orders by California by Month
+```{r}
+# Create a dataframe of orders by state by month
+orders_by_ca_by_month_dat <- sales_dat %>%
+  group_by(state_is_california, planned_delivery_month) %>%
   summarise(
     total_orders        = n(),
     total_quantity      = sum(Quantity),
@@ -72,8 +250,7 @@ head(orders_by_state_by_month_dat)
 
 #### Order Quantity by State and Fulfilling Plant
 ```{r}
-orders_by_state_and_plant <- sales_dat %>%
-  filter(domestic_or_international == "domestic") %>%
+orders_by_state_and_plant <- top_sales_dat %>%
   group_by(Ship_to_State, Company) %>%
   summarise(
     total_orders        = n(),
@@ -84,7 +261,517 @@ orders_by_state_and_plant <- sales_dat %>%
 head(orders_by_state_and_plant)
 ```
 
+#### Order Quantity by California and Fulfilling Plant
+```{r}
+orders_by_state_and_plant <- top_sales_dat %>%
+  group_by(state_is_california, Company) %>%
+  summarise(
+    total_orders        = n(),
+    total_quantity      = sum(Quantity),
+    mean_order_quantity = mean(Quantity),
+    sd_order_quantity   = sd(Quantity)
+  )
+head(orders_by_state_and_plant)
+```
+
 ## Exploratory Plots
+#### Order Quantity by California
+```{r, dpi=400, fig.width=6.7, fig.height=4}
+plt <- orders_by_ca_dat %>%
+  ggplot(aes(
+    x    = reorder(state_is_california, total_quantity),
+    y    = total_quantity,
+    fill = reorder(state_is_california, total_quantity))
+  ) +
+  geom_bar(stat = "identity", width = .4) +
+  scale_y_continuous(
+    label  = comma, 
+    name   = "Total Order Quantity", 
+    expand = c(0, 0),
+    limits = c(-100, 17000000)
+  ) +
+  scale_x_discrete(name = element_blank()) +
+  ggtitle(
+    "California drives tomato bag sales",
+    "Total tomato bag order quantity, 2010-2019"
+  ) +
+  theme_linedraw() +
+  theme(
+    plot.background    = element_rect(fill = "#E6E6E6"),
+    panel.background   = element_rect(fill = "#FFFFFF"),
+    text               = element_text(color = "#333F49", family = "roboto"),
+    axis.title.x       = element_text(face = "bold", margin = margin(t = 10)),
+    axis.text.y        = element_text(face = "bold", margin = margin(r = 8)),
+    plot.title         = element_text(face = "bold"),
+    plot.margin        = unit(c(15,18,18,13), "pt"),
+    panel.border       = element_blank(),
+    panel.grid.major.y = element_blank(),
+    panel.grid.major.x = element_line(color = "#E6E6E6", size = 1),
+    panel.grid.minor.x = element_line(color = "#E6E6E6", size = 1),
+    legend.position    = "none"
+  ) +
+  scale_fill_manual(values = c("CA" = "#F6303E", "Other" = "#2A373D")) +
+  coord_flip()
+plt
+
+```
+
+#### All States Order Quantity
+```{r, dpi=400, fig.width=6.7, fig.height=4}
+orders_by_state %>%
+  filter(Ship_to_State != "CA") %>%
+  mutate(is_top_3_qty = if_else(rank(-total_quantity) <= 4, "top", "not")) %>%
+  ggplot(aes(
+    x = reorder(Ship_to_State, -total_quantity), 
+    y = total_quantity, 
+    fill = is_top_3_qty
+  )) +
+  geom_bar(stat = "identity", width = .4) +
+  scale_y_continuous(
+    label  = comma, 
+    name   = "Total Order Quantity", 
+    expand = c(0, 0),
+    limits = c(-400, 500000)
+  ) +
+  scale_x_discrete(name = element_blank()) +
+  ggtitle(
+    "The remainder of orders are driven by four states/provinces",
+    "Total tomato bag order quantity with California omitted, 2010-2019"
+  ) +
+  theme_linedraw() +
+  theme(
+    plot.background    = element_rect(fill = "#E6E6E6"),
+    panel.background   = element_rect(fill = "#FFFFFF"),
+    text               = element_text(color = "#333F49", family = "roboto"),
+    axis.title.y       = element_text(face = "bold", margin = margin(r = 10)),
+    axis.text.x        = element_text(margin = margin(t = 10)),
+    plot.title         = element_text(face = "bold"),
+    plot.margin        = unit(c(15,18,13,13), "pt"),
+    panel.border       = element_blank(),
+    panel.grid.major.y = element_line(color = "#E6E6E6", size = 1),
+    panel.grid.minor.y = element_line(color = "#E6E6E6", size = 1),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.x = element_blank(),
+    legend.position    = "none"
+  ) +
+  scale_fill_manual(values = c("top" = "#F6303E", "not" = "#2A373D")) 
+  
+```
+#### Annual Order Quantity by CA
+```{r, dpi=400, fig.width=6.7, fig.height=4}
+plt <- orders_by_ca_by_year_dat %>% 
+  ggplot(aes(
+    x        = planned_delivery_year, 
+    y        = total_quantity,
+    color    = state_is_california,
+    linetype = state_is_california
+  )) +
+  geom_line(size = 1.3) +
+  scale_y_continuous(
+    label  = comma, 
+    name   = "Annual Order Quantity", 
+    expand = c(0, 0),
+    limits = c(0, 2250000)
+  ) +
+  scale_x_continuous(name = element_blank()) +
+  ggtitle(
+    "Annual sales demonstrate no visible trend",
+    "Annual tomato bag order quantity, 2010-2019"
+  ) +
+  theme_linedraw() +
+  theme(
+    plot.background    = element_rect(fill = "#E6E6E6"),
+    panel.background   = element_rect(fill = "#FFFFFF"),
+    text               = element_text(color = "#333F49", family = "roboto"),
+    axis.title.y       = element_text(face = "bold", margin = margin(r = 10)),
+    axis.text.x        = element_text(margin = margin(t = 10)),
+    plot.title         = element_text(face = "bold"),
+    plot.margin        = unit(c(15,18,13,13), "pt"),
+    panel.border       = element_blank(),
+    panel.grid.major.y = element_line(color = "#E6E6E6", size = 1),
+    panel.grid.minor.y = element_line(color = "#E6E6E6", size = 1),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.x = element_blank(),
+    legend.title       = element_blank(),
+    legend.position    =  c(0.85, 0.4)
+  ) +
+  scale_color_manual(values = c(
+    "CA"         = "#2A373D",
+    "Total"      = "#F6303E",
+    "Other" = "#2A373D"
+  )) +
+  scale_linetype_manual(values = c(
+    "CA"         = 2, 
+    "Total"      = 1, 
+    "Other" = 1
+  ))
+plt
+```
+
+#### Annual sales (location)/no cali
+```{r, fig.width=6.7, fig.height=4, dpi=400}
+axis_min <- orders_by_state_by_year_dat %>%
+  filter(Ship_to_State != "CA") %>%
+  group_by(1) %>%
+  summarise(min_val = min(total_quantity)) %>%
+  pull()
+axis_max <- orders_by_state_by_year_dat %>%
+  filter(Ship_to_State != "CA") %>%
+  group_by(1) %>%
+  summarise(max_val = max(total_quantity)) %>%
+  pull()
+
+orders_by_state_by_year_dat %>%
+  filter(Ship_to_State != "CA") %>%
+  ggplot(aes(
+    x = planned_delivery_year, 
+    y = total_quantity
+  )) +
+  geom_line(size = 1.3, color = "#F6303E") +
+  scale_y_continuous(
+    label  = comma, 
+    name   = "Annual Order Quantity", 
+    expand = c(0,0),
+    limits = c(axis_min, axis_max)
+  ) +
+  scale_x_continuous(name = element_blank()) +
+  theme_linedraw() +
+  theme(
+    plot.background    = element_rect(fill = "#E6E6E6"),
+    panel.background   = element_rect(fill = "#FFFFFF"),
+    text               = element_text(color = "#333F49", family = "roboto"),
+    axis.title.y       = element_blank(),
+    axis.title.x       = element_blank(),
+    axis.text.x        = element_text(margin = margin(t = 7), size = 6),
+    axis.text.y        = element_text(margin = margin(t = 7), size = 6),
+    plot.title         = element_text(face = "bold"),
+    plot.margin        = unit(c(15,18,13,19), "pt"),
+    panel.border       = element_blank(),
+    panel.grid.major.y = element_line(color = "#E6E6E6", size = .8),
+    panel.grid.minor.y = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.x = element_line(color = "#E6E6E6", size = .8)
+  ) +
+  facet_wrap(~ Ship_to_State, ncol = 4) +
+  ggtitle("Annual demand varies annually in Ohio, Ontario, and Arizona",
+          "Annual tomato bag order quantity by location with California omitted, 2010-2018")
+  
+```
+
+#### Distribution of Order Size
+```{r, dpi=500, fig.width=6.7, fig.height=4}
+mean_order_size <- mean(sales_dat$Quantity)
+
+sales_dat %>% 
+  ggplot(aes(x = Quantity)) +
+  geom_histogram(color = "#FFFFFF", fill = "#2A373D", bins = 10) +
+  scale_y_continuous(
+    label  = comma, 
+    name   = "Frequency", 
+    expand = c(0, 0),
+    limits = c(0, 400)
+  ) +
+  scale_x_continuous(label = comma, name = "Order Size") +
+  ggtitle(
+    "Order size is right skewed",
+    "Distribution of tomato bag order quantity, 2010-2019"
+  ) +
+  theme_linedraw() +
+  theme(
+    plot.background    = element_rect(fill = "#E6E6E6"),
+    panel.background   = element_rect(fill = "#FFFFFF"),
+    text               = element_text(color = "#333F49", family = "roboto"),
+    axis.title.y       = element_text(face = "bold", margin = margin(r = 10)),
+    axis.text.x        = element_text(margin = margin(t = 10)),
+    axis.title.x       = element_text(face = "bold"),
+    plot.title         = element_text(face = "bold"),
+    plot.margin        = unit(c(15,18,13,13), "pt"),
+    panel.border       = element_blank(),
+    panel.grid.major.y = element_line(color = "#E6E6E6", size = 1),
+    panel.grid.minor.y = element_line(color = "#E6E6E6", size = 1),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.x = element_blank()
+  ) +
+  scale_color_manual(values = c(
+    "CA"         = "#2A373D",
+    "Total"      = "#F6303E",
+    "Other" = "#2A373D"
+  )) +
+  scale_linetype_manual(values = c(
+    "CA"         = 2, 
+    "Total"      = 1, 
+    "Other" = 1
+  ))
+```
+#### Distribution by State
+```{r, dpi=500, fig.width=6.7, fig.height=4}
+sales_dat %>%
+  filter(!is.na(Ship_to_State)) %>%
+  ggplot(aes(x = Ship_to_State, y = Quantity, color = is_ca_or_dr)) +
+  geom_jitter(size = .5, color = "#333F49", height = 0, width = .2) +
+  geom_boxplot(fill = "#FFFFFF", outlier.shape = NA, size = .8)  +
+  scale_y_continuous(label = comma, name = "Order Size") +
+  theme_linedraw() +
+  theme(
+    plot.background    = element_rect(fill = "#E6E6E6"),
+    panel.background   = element_rect(fill = "#FFFFFF"),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    text               = element_text(color = "#333F49", family = "roboto"),
+    axis.title.y       = element_text(face = "bold", margin = margin(r = 10)),
+    axis.text.x        = element_text(margin = margin(t = 10)),
+    axis.title.x       = element_blank(),
+    plot.title         = element_text(face = "bold"),
+    plot.margin        = unit(c(15,12,13,13), "pt"),
+    panel.border       = element_blank(),
+    panel.grid.major.y = element_line(color = "#E6E6E6", size = 1),
+    panel.grid.minor.y = element_line(color = "#E6E6E6", size = 1),
+    legend.position    = "none"
+  ) +
+  scale_color_manual(values = c("yes" = "#F6303E", "no" = "#2A373D")) +
+  scale_x_discrete() +
+  ggtitle(
+    "California & the Dominican republic have large orders",
+    paste0("Distribution of tomato bag order quantity by location, 2010-2018 (",
+           "jitter added)")
+  )
+  
+
+```
+
+
+
+#### Monthly Order Quantity
+```{r, dpi=500, fig.width=6.7, fig.height=4}
+orders_by_year_month_dat <- sales_dat %>% 
+  group_by(planned_delivery_year, planned_delivery_month) %>%
+  summarise(
+    total_orders        = n(),
+    total_quantity      = sum(Quantity),
+    mean_order_quantity = mean(Quantity),
+    sd_order_quantity   = sd(Quantity)
+  )
+
+monthly_order_summary <- orders_by_year_month_dat %>%
+  group_by(planned_delivery_month) %>%
+  summarise(
+    total_orders_by_mo      = sum(total_orders),
+    total_qty_by_mo         = sum(total_quantity),
+    mean_monthly_quantity   = mean(total_quantity),
+    median_monthly_quantity = median(total_quantity),
+    max_monthly_quantity    = max(total_quantity),
+    min_monthly_quantity    = min(total_quantity),
+    sd_monthly_quantity     = sd(total_quantity, na.rm = TRUE)
+  )
+
+monthly_order_summary %>%
+  ggplot(aes(x = planned_delivery_month)) +
+  geom_ribbon(
+    aes(
+      x    = 1:length(planned_delivery_month),
+      ymin = mean_monthly_quantity - 2 * sd_monthly_quantity,
+      ymax = mean_monthly_quantity + 2 * sd_monthly_quantity
+    ),
+    alpha = .5,
+    fill = "#333F49"
+  ) +
+  geom_line(
+    aes(y = mean_monthly_quantity, x = planned_delivery_month),
+    color = "#F6303E",
+    size = 1.3,
+    group = 1) +
+  scale_y_continuous(label = comma, name = "Monthly Order Quantity") +
+  scale_x_discrete(labels = month.abb) +
+  theme_linedraw() +
+  theme(
+    plot.background    = element_rect(fill = "#E6E6E6"),
+    panel.background   = element_rect(fill = "#FFFFFF"),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    text               = element_text(color = "#333F49", family = "roboto"),
+    axis.title.y       = element_text(face = "bold", margin = margin(r = 10)),
+    axis.text.x        = element_text(),
+    axis.title.x       = element_blank(),
+    plot.title         = element_text(face = "bold"),
+    panel.border       = element_blank(),
+    panel.grid.major.y = element_line(color = "#E6E6E6", size = 1),
+    panel.grid.minor.y = element_line(color = "#E6E6E6", size = 1),
+    plot.margin        = unit(c(15,12,13,13), "pt")
+  ) +
+  ggtitle(
+    "Bag demand peaks during the Summer",
+    "Mean monthly tomato bag order quantity +/- 2 standard deviations, 2010-2018"
+  )
+  
+  
+```
+
+#### Same as above but for CA
+```{r, r, dpi=500, fig.width=6.7, fig.height=4}
+
+orders_by_year_month_ca_dat <- sales_dat %>%
+  filter(Ship_to_State == "CA") %>%
+  group_by(planned_delivery_year, planned_delivery_month) %>%
+  summarise(
+    total_orders        = n(),
+    total_quantity      = sum(Quantity),
+    mean_order_quantity = mean(Quantity),
+    sd_order_quantity   = sd(Quantity)
+  )
+
+monthly_order_ca_summary <- orders_by_year_month_dat %>%
+  group_by(planned_delivery_month) %>%
+  summarise(
+    total_orders_by_mo      = sum(total_orders),
+    total_qty_by_mo         = sum(total_quantity),
+    mean_monthly_quantity   = mean(total_quantity),
+    median_monthly_quantity = median(total_quantity),
+    max_monthly_quantity    = max(total_quantity),
+    min_monthly_quantity    = min(total_quantity),
+    sd_monthly_quantity     = sd(total_quantity, na.rm = TRUE)
+  )
+
+
+
+monthly_order_ca_summary %>%
+  ggplot(aes(x = planned_delivery_month)) +
+  geom_ribbon(
+    aes(
+      x    = 1:length(planned_delivery_month),
+      ymin = mean_monthly_quantity - 2 * sd_monthly_quantity,
+      ymax = mean_monthly_quantity + 2 * sd_monthly_quantity
+    ),
+    alpha = .5,
+    fill = "#333F49"
+  ) +
+  geom_line(
+    aes(y = mean_monthly_quantity, x = planned_delivery_month),
+    color = "#F6303E",
+    size = 1.3,
+    group = 1) +
+  scale_y_continuous(label = comma, name = "Monthly Order Quantity") +
+  scale_x_discrete(labels = month.abb) +
+  theme_linedraw() +
+  theme(
+    plot.background    = element_rect(fill = "#E6E6E6"),
+    panel.background   = element_rect(fill = "#FFFFFF"),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    text               = element_text(color = "#333F49", family = "roboto"),
+    axis.title.y       = element_text(face = "bold", margin = margin(r = 10)),
+    axis.text.x        = element_text(),
+    axis.title.x       = element_blank(),
+    plot.title         = element_text(face = "bold"),
+    panel.border       = element_blank(),
+    panel.grid.major.y = element_line(color = "#E6E6E6", size = 1),
+    panel.grid.minor.y = element_line(color = "#E6E6E6", size = 1),
+    plot.margin        = unit(c(15,12,13,13), "pt")
+  ) +
+  ggtitle(
+    "Bag demand peaks during the Summer in California",
+    "Mean California mo. tomato bag order qty. +/- 2 standard deviations, 2010-2018"
+  )
+```
+
+
+
+#### above by state (no CA)
+```{r, fig.width=6.7, fig.height=4, dpi=400}
+orders_by_year_month_state_dat <- sales_dat %>% 
+  filter(Ship_to_State != "CA") %>%
+  group_by(planned_delivery_year, planned_delivery_month, Ship_to_State) %>%
+  summarise(
+    total_orders        = n(),
+    total_quantity      = sum(Quantity),
+    mean_order_quantity = mean(Quantity),
+    sd_order_quantity   = sd(Quantity)
+  )
+
+monthly_state_order_summary <- orders_by_year_month_state_dat %>%
+  group_by(planned_delivery_month, Ship_to_State) %>%
+  summarise(
+    total_orders_by_mo      = sum(total_orders),
+    total_qty_by_mo         = sum(total_quantity),
+    mean_monthly_quantity   = mean(total_quantity),
+    median_monthly_quantity = median(total_quantity),
+    max_monthly_quantity    = max(total_quantity),
+    min_monthly_quantity    = min(total_quantity),
+    sd_monthly_quantity     = sd(total_quantity, na.rm = TRUE)
+  )
+
+months_states_dat <- expand.grid(
+  monthly_state_order_summary %>% 
+    select(Ship_to_State) %>% pull() %>% unique(),
+  monthly_state_order_summary %>% 
+    select(planned_delivery_month) %>% distinct() %>% pull()
+) %>% distinct()
+
+colnames(months_states_dat) <- c("Ship_to_State", "planned_delivery_month")
+
+monthly_state_order_summary <- monthly_state_order_summary %>%
+  full_join(months_states_dat)
+
+monthly_state_order_summary <- monthly_state_order_summary %>%
+  mutate(
+    mean_monthly_quantity = case_when(
+      is.na(mean_monthly_quantity) ~ 0,
+      TRUE                         ~ mean_monthly_quantity
+    ),
+    sd_monthly_quantity   = case_when(
+      is.na(sd_monthly_quantity) | 
+        is.nan(sd_monthly_quantity) ~ 0,
+      TRUE                          ~ sd_monthly_quantity
+    ))
+
+monthly_state_order_summary$month_num <- match(
+  monthly_state_order_summary$planned_delivery_month,
+  month.abb)
+
+min_qty <- min(monthly_state_order_summary$min_monthly_quantity) * 1.05
+max_qty <- max(monthly_state_order_summary$max_monthly_quantity) * 1.05
+
+monthly_state_order_summary %>%
+  ggplot(aes(x = planned_delivery_month)) +
+  geom_ribbon(
+    aes(
+      x    = month_num,
+      ymin = mean_monthly_quantity - 2 * sd_monthly_quantity,
+      ymax = mean_monthly_quantity + 2 * sd_monthly_quantity
+    ),
+    alpha = .5,
+    fill = "#333F49"
+  ) +
+  geom_line(
+    aes(y = mean_monthly_quantity, x = planned_delivery_month),
+    color = "#F6303E",
+    size = 1.3,
+    group = 1) +
+  scale_y_continuous(label = comma, name = "Mean Order Size") +
+  scale_x_discrete(breaks = c("Jan", "Mar", "May", "Jul", "Sep", "Nov")) +
+  theme_linedraw() +
+  theme(
+    plot.background    = element_rect(fill = "#E6E6E6"),
+    panel.background   = element_rect(fill = "#FFFFFF"),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    text               = element_text(color = "#333F49", family = "roboto"),
+    axis.title.y       = element_text(face = "bold", margin = margin(r = 10)),
+    axis.text.x        = element_text(size = 6, margin = margin(t = 7)),
+    axis.title.x       = element_blank(),
+    plot.title         = element_text(face = "bold"),
+    panel.border       = element_blank(),
+    panel.grid.major.y = element_line(color = "#E6E6E6", size = 1),
+    panel.grid.minor.y = element_line(color = "#E6E6E6", size = 1),
+    plot.margin        = unit(c(15,18,13,19), "pt")
+  ) +
+  facet_wrap(~ Ship_to_State, ncol = 4) +
+  ggtitle(
+    "Bag demand peaks during the Summer",
+    "Mean monthly tomato bag order quantity +/- 2 standard deviations, 2010-2018"
+  )
+
+```
+
 #### Number of Ship-To States per Year
 ```{r}
 # plot the number of states per year
@@ -93,7 +780,7 @@ states_by_year_dat %>%
   geom_col() +
   scale_y_continuous(
     label = comma, 
-    name = "Number of States", 
+    name = "Number of Locations", 
     expand = c(0, 0)
   ) +
   scale_x_continuous(name = "Planned Delivery Year") +
@@ -117,6 +804,23 @@ orders_by_state_by_year_dat %>%
   theme_light()
 ```
 
+#### Total Order Quantity by State and Year (CA)
+```{r}
+orders_by_state_by_year_dat %>%
+  filter(Ship_to_State != "CA") %>%
+  ggplot(aes(
+    x = planned_delivery_year, 
+    y = total_quantity, 
+    fill = Ship_to_State
+  )) +
+  geom_bar(position = "dodge", stat = "identity") +
+  scale_y_continuous(label = comma, name = "Total Quantity", expand = c(0, 0)) +
+  scale_x_continuous(name = "Planned Delivery Year") +
+  scale_fill_discrete(name = "Ship to State") +
+  ggtitle("Total Order Quantity by State and Year (w/out California") +
+  theme_light()
+```
+
 #### Total Order Count by State and Year
 ```{r}
 orders_by_state_by_year_dat %>%
@@ -134,6 +838,27 @@ orders_by_state_by_year_dat %>%
   scale_x_continuous(name = "Planned Delivery Year") +
   scale_fill_discrete(name = "Ship to State") +
   ggtitle("Total Number of Orders by State and Year") +
+  theme_light()
+```
+
+#### Total Order Count by State and Year (w/out CA)
+```{r}
+orders_by_state_by_year_dat %>%
+  filter(Ship_to_State != "CA") %>%
+  ggplot(aes(
+    x = planned_delivery_year, 
+    y = total_orders, 
+    fill = Ship_to_State
+  )) +
+  geom_bar(position = "dodge", stat = "identity") +
+  scale_y_continuous(
+    label = comma, 
+    name = "Total Number of Orders", 
+    expand = c(0, 0)
+  ) +
+  scale_x_continuous(name = "Planned Delivery Year") +
+  scale_fill_discrete(name = "Ship to State") +
+  ggtitle("Total Number of Orders by State and Year (w/out California)") +
   theme_light()
 ```
 
@@ -156,6 +881,29 @@ orders_by_state_by_year_dat %>%
   ggtitle("Mean Order Quantity by State and Year") +
   theme_light()
 ```
+
+#### Average Order Size by State and Year (w/out CA)
+```{r}
+orders_by_state_by_year_dat %>%
+  filter(Ship_to_State != "CA") %>%
+  ggplot(aes(
+    x = planned_delivery_year, 
+    y = mean_order_quantity, 
+    fill = Ship_to_State
+  )) +
+  geom_bar(position = "dodge", stat = "identity") +
+  scale_y_continuous(
+    label = comma, 
+    name = "Mean Order Quantity", 
+    expand = c(0, 0)
+  ) +
+  scale_x_continuous(name = "Planned Delivery Year") +
+  scale_fill_discrete(name = "Ship to State", drop = FALSE) +
+  ggtitle("Mean Order Quantity by State and Year (w/out CA") +
+  theme_light()
+```
+
+
 
 #### Monthly Order Quantity by State
 Define a function for the plot
@@ -181,7 +929,6 @@ plot_order_quantity_by_month_for_state <- function(state, dat) {
 Create a vector of unique states
 ```{r}
 unique_states <- sales_dat %>%
-  filter(domestic_or_international == "domestic") %>%
   pull(Ship_to_State) %>%
   as.character() %>%
   unique() %>%
@@ -206,25 +953,147 @@ grid.arrange(
 
 #### Total Quantity by State and Fulfilling Plant
 ```{r}
-orders_by_state_and_plant %>%
-  ggplot(aes(x = Ship_to_State, y = total_quantity, fill = Company)) +
-  geom_bar(position = "dodge", stat = "identity") +
-  scale_y_continuous(
-    name = "Total Order Quantity",
-    label = comma,
-    expand = c(0, 0)
-  ) +
-  ggtitle("Total Quantity by State and Fulfilling Plant") +
-  theme_light()
+# orders_by_state_and_plant %>%
+#   ggplot(aes(x = Ship_to_State, y = total_quantity, fill = Company)) +
+#   geom_bar(position = "dodge", stat = "identity") +
+#   scale_y_continuous(
+#     name = "Total Order Quantity",
+#     label = comma,
+#     expand = c(0, 0)
+#   ) +
+#   ggtitle("Total Quantity by State and Fulfilling Plant") +
+#   theme_light()
 ```
 
+```{r, dpi = 400}
+# Plots required for presentatoin
 
+# Total Sales by CA and others
+sales_dat %>% 
+  group_by(graphing_state) %>%
+  summarise(total_quantity = sum(Quantity)) %>%
+  arrange(desc(total_quantity)) %>%
+  ggplot(aes(x = reorder(graphing_state, -total_quantity), y = total_quantity)) +
+  geom_col() +
+  theme_light() +
+  theme(
+    axis.title.x = element_blank()
+  ) +
+  scale_y_continuous(
+    name   = "Total Order Quantity", 
+    label  = comma, 
+    expand = c(0, 0),
+    limits = c(0, 20000000)
+  )
+  
 
+```
 
+```{r}
+top_5_states_by_year <- sales_dat %>%
+  group_by(Ship_to_State, planned_delivery_year) %>%
+  summarise(total_quantity = sum(Quantity)) %>%
+  group_by(planned_delivery_year) %>%
+  top_n(n = 5, wt = total_quantity) %>%
+  mutate(graphing_state_year = Ship_to_State) %>%
+  select(Ship_to_State, planned_delivery_year, graphing_state_year)
 
+sales_dat <- sales_dat %>%
+  left_join(
+    top_5_states_by_year,
+    by = c("Ship_to_State" = "Ship_to_State", 
+           "planned_delivery_year" = "planned_delivery_year")
+  ) %>%
+  mutate(graphing_state_year = if_else(
+    is.na(graphing_state_year), 
+    "Other", 
+    as.character(graphing_state_year)
+  ))
 
+sales_dat %>%
+  group_by(graphing_state_year, planned_delivery_year) %>%
+  summarise(total_quantity = sum(Quantity)) %>%
+  group_by(planned_delivery_year) %>%
+  top_n(n = 5, wt = total_quantity) %>%
+  ggplot(aes(
+    x    = planned_delivery_year, 
+    y    = total_quantity,
+    fill = graphing_state_year, -total_quantity)
+  ) +
+  geom_col(position = "stack") +
+  theme_light() +
+  theme(
+    axis.title.x = element_blank()
+  ) +
+  scale_y_continuous(
+    name   = "Total Order Quantity", 
+    label  = comma, 
+    expand = c(0, 0)
+  ) +
+  labs(fill = "State")
+```
 
+```{r}
+sales_dat %>% 
+  group_by(graphing_city) %>%
+  summarise(total_quantity = sum(Quantity)) %>%
+  arrange(desc(total_quantity)) %>%
+  ggplot(aes(x = reorder(graphing_city, -total_quantity), y = total_quantity)) +
+  geom_col() +
+  theme_light() +
+  theme(
+    axis.title.x = element_blank()
+  ) +
+  scale_y_continuous(
+    name   = "Total Order Quantity", 
+    label  = comma, 
+    expand = c(0, 0)
+  )
+```
 
+```{r}
+top_5_cities_by_year <- sales_dat %>%
+  group_by(Ship_to_City, planned_delivery_year) %>%
+  summarise(total_quantity = sum(Quantity)) %>%
+  group_by(planned_delivery_year) %>%
+  top_n(n = 5, wt = total_quantity) %>%
+  mutate(graphing_city_year = Ship_to_City) %>%
+  select(Ship_to_City, planned_delivery_year, graphing_city_year)
+
+sales_dat <- sales_dat %>%
+  left_join(
+    top_5_cities_by_year,
+    by = c("Ship_to_City" = "Ship_to_City", 
+           "planned_delivery_year" = "planned_delivery_year")
+  ) %>%
+  mutate(graphing_city_year = if_else(
+    is.na(graphing_city_year), 
+    "Other", 
+    as.character(graphing_city_year)
+  ))
+
+sales_dat %>% 
+  group_by(graphing_city_year, planned_delivery_year) %>%
+  summarise(total_quantity = sum(Quantity)) %>%
+  group_by(planned_delivery_year) %>%
+  top_n(n = 5, wt = total_quantity) %>%
+  ggplot(aes(
+    x    = planned_delivery_year, 
+    y    = total_quantity,
+    fill = graphing_city_year
+  )) +
+  geom_col(position = "stack") +
+  theme_light() +
+  theme(
+    axis.title.x = element_blank()
+  ) +
+  scale_y_continuous(
+    name   = "Total Order Quantity", 
+    label  = comma, 
+    expand = c(0, 0)
+  ) +
+  labs(fill = "City")
+```
 
 
 
