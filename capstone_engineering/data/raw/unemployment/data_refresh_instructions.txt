@@ -1,0 +1,27 @@
+This document outlines how to refresh the unemployment/labor force participation rate data
+ 
+NATIONAL UNEMPLOYMENT RATE DATA
+ 
+1.) Open https://data.bls.gov/PDQWeb/ln
+ 
+2.) In section 7, select "Unemployment rate" and "Civilian labor force participation rate"
+ 
+3.) In section 8, ensure both "Seasonally Adjusted" and "Not Seasonally Adjusted" are both selected
+ 
+4.) In section 9, select "Monthly"
+ 
+5.) Click "Add to Selection", then "Get Data". NOTE that your pop up blocker must be configured to allow this site to 
+    create popups
+
+6.) On the "Databases, Tables, and Calculators by Subject" page click "More Formatting Options"
+
+7.) Select "Column Format"
+
+8.) Specify the year range as 2005 to most recent year
+
+9.) Click "Retrieve Data"
+
+10.) Save the Excel files
+
+NOTE: Code will interpret the series IDs as follows:
+ 
