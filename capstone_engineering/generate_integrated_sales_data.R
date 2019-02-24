@@ -30,6 +30,12 @@ raw_oecd_path <- "data/raw/oecd"
 # path to save clean OECD index data
 clean_oecd_path <- "data/pipeline/us_oecd_cci_bci.rds"
 
+# path to raw federal funds rate data
+raw_fed_fund_path <- "data/raw/FEDFUNDS.csv"
+
+# path to save federal funds rate data
+clean_fed_fund_path <- "data/pipeline/federal_funds_rate.rds"
+
 # Prepare the Sholle IPN Orders Dataset  ---------------------------------------
 
 # read the raw order data
@@ -73,11 +79,22 @@ oecd_dat <- clean_oecd_indices(oecd_dat)
 # save the monthly CCI and BCI data
 write_rds(oecd_dat, clean_oecd_path)
 
+# Prepare the national federal funds rate data  --------------------------------
+
+# read the raw data
+fed_fund_rate_dat <- read_raw_federal_funds_rate(raw_fed_fund_path)
+
+# clean the data
+fed_fund_rate_dat <- clean_federal_funds_rate(fed_fund_rate_dat)
+
+# save the federal fund rate data
+write_rds(fed_fund_rate_dat, clean_fed_fund_path)
+
 # Prepare the final integrated monthly analysis datasets  ----------------------
 
 # join the monthly orders with the employment data
 monthly_analysis_dat <- prepare_monthly_analysis(
-  monthly_orders_dat, employment_dat, oecd_dat
+  monthly_orders_dat, employment_dat, oecd_dat, fed_fund_rate_dat
 )
 
 
