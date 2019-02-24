@@ -141,6 +141,20 @@ read_raw_federal_funds_rate <- function(path = "data/raw/FEDFUNDS.csv") {
   dat
 }
 
+# Define a function for reading average raw us city field grown tomato price
+read_raw_tomato_price <- function(path = "data/raw/tomato_cpi") {
+  
+  # define a vector of filenames in the path and append path
+  filenames <- paste(path, dir(path, pattern = "*.xlsx"), sep = "/")
+  
+  # combine the files into one dataframe (if applicable)
+  dat <- filenames %>% 
+    map(read_excel, sheet = "BLS Data Series", skip = 9) %>%
+    reduce(rbind)
+  
+  dat
+}
+
 # Define functions for preparing clean datasets  ###############################
 
 # Define a function for cleaning and preparing the Scholle IPN order data
@@ -299,9 +313,28 @@ clean_federal_funds_rate <- function(data) {
   dat
 }
 
+# Define a function for cleaning the field grown tomato price data
+clean_tomato_prices <- function(data) {
+  dat <- data
+  
+  # snake case the column nmaes
+  dat <- dat %>% clean_names()
+  
+  # add a month column
+  dat <- dat %>% mutate(month = as.integer(substr(period, 2, 3)))
+  
+  # rename the value column to represent the measure
+  dat <- dat %>% rename(us_city_avg_field_grown_tomato_price_per_lb = value)
+  
+  # drop the series id and period columns
+  dat <- dat %>% select(-series_id, -period)
+  
+  dat
+}
+
 # Define a function for joining monthly data to the final analysis dataset
 prepare_monthly_analysis <- function(
-  monthly_orders, employment, oecd, federal_funds_rate
+  monthly_orders, employment, oecd, federal_funds_rate, field_grown_tomato_price
 ) {
   
   # join the orders with the employment data
@@ -317,6 +350,12 @@ prepare_monthly_analysis <- function(
   
   # join with the federal funds rate data
   dat <- dat %>% inner_join(federal_funds_rate, by = c(
+    "planned_delivery_month_num" = "month",
+    "planned_delivery_year"      = "year"
+  ))
+  
+  # join with the us city avg field grown tomato price data
+  dat <- dat %>% inner_join(field_grown_tomato_price, by = c(
     "planned_delivery_month_num" = "month",
     "planned_delivery_year"      = "year"
   ))
