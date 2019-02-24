@@ -132,6 +132,15 @@ read_raw_oecd_indices <- function(path = "data/raw/oecd") {
   dat
 }
 
+# Define a function for reading the raw federal funds rate data
+read_raw_federal_funds_rate <- function(path = "data/raw/FEDFUNDS.csv") {
+  
+  # read the raw data
+  dat <- read_csv(path)
+  
+  dat
+}
+
 # Define functions for preparing clean datasets  ###############################
 
 # Define a function for cleaning and preparing the Scholle IPN order data
@@ -268,8 +277,32 @@ clean_oecd_indices <- function(data) {
   dat
 }
 
+# Define a function for cleaning hte US federal funds rate data
+clean_federal_funds_rate <- function(data) {
+  dat <- data
+  
+  # snake case the column names
+  dat <- dat %>% clean_names()
+  
+  # define columns for month and year
+  dat <- dat %>% mutate(
+    year  = year(date),
+    month = month(date, label = FALSE)
+  )
+  
+  # drop the date column
+  dat <- dat %>% select(-date)
+  
+  # rename the federal funds rate column
+  dat <- dat %>% rename(us_federal_funds_rate = fedfunds)
+  
+  dat
+}
+
 # Define a function for joining monthly data to the final analysis dataset
-prepare_monthly_analysis <- function(monthly_orders, employment, oecd) {
+prepare_monthly_analysis <- function(
+  monthly_orders, employment, oecd, federal_funds_rate
+) {
   
   # join the orders with the employment data
   dat <- monthly_orders %>% inner_join(employment, by = c(
@@ -278,6 +311,12 @@ prepare_monthly_analysis <- function(monthly_orders, employment, oecd) {
   
   # join with the oecd CCI and BCI data
   dat <- dat %>% inner_join(oecd, by = c(
+    "planned_delivery_month_num" = "month",
+    "planned_delivery_year"      = "year"
+  ))
+  
+  # join with the federal funds rate data
+  dat <- dat %>% inner_join(federal_funds_rate, by = c(
     "planned_delivery_month_num" = "month",
     "planned_delivery_year"      = "year"
   ))
