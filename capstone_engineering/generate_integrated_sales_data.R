@@ -36,6 +36,12 @@ raw_fed_fund_path <- "data/raw/FEDFUNDS.csv"
 # path to save federal funds rate data
 clean_fed_fund_path <- "data/pipeline/federal_funds_rate.rds"
 
+# path to raw us city avg field grown tomato price data
+raw_tomato_price_path <- "data/raw/tomato_cpi"
+
+# path to save us city avg field grown tomato price data
+clean_tomato_price_path <- "data/pipeline/us_city_field_grown_tomato_price.rds"
+
 # Prepare the Sholle IPN Orders Dataset  ---------------------------------------
 
 # read the raw order data
@@ -90,11 +96,24 @@ fed_fund_rate_dat <- clean_federal_funds_rate(fed_fund_rate_dat)
 # save the federal fund rate data
 write_rds(fed_fund_rate_dat, clean_fed_fund_path)
 
+# Prepare the field grown tomato price data  -----------------------------------
+
+# read the raw average field grown tomato price for US cities 
+city_field_grown_tomato_price_dat <- 
+  read_raw_tomato_price(raw_tomato_price_path)
+
+# clean the data
+city_field_grown_tomato_price_dat <- 
+  clean_tomato_prices(city_field_grown_tomato_price_dat)
+
+write_rds(city_field_grown_tomato_price_dat, clean_tomato_price_path)
+
 # Prepare the final integrated monthly analysis datasets  ----------------------
 
 # join the monthly orders with the employment data
 monthly_analysis_dat <- prepare_monthly_analysis(
-  monthly_orders_dat, employment_dat, oecd_dat, fed_fund_rate_dat
+  monthly_orders_dat, employment_dat, oecd_dat, fed_fund_rate_dat, 
+  city_field_grown_tomato_price_dat
 )
 
 
