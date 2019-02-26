@@ -155,6 +155,13 @@ read_raw_tomato_price <- function(path = "data/raw/tomato_cpi") {
   dat
 }
 
+# Define a function for reading housing price index data
+read_housing_price_index <- function(path = "data/raw/HPI_master.csv") {
+  
+  # read the raw data
+  dat <- read_csv(path)
+}
+
 # Define functions for preparing clean datasets  ###############################
 
 # Define a function for cleaning and preparing the Scholle IPN order data
@@ -332,30 +339,62 @@ clean_tomato_prices <- function(data) {
   dat
 }
 
+# Define a function for cleaning the housing price index data
+clean_housing_price_index <- function(data) {
+  dat <- data
+  
+  # snake case the column names
+  dat <- dat %>% clean_names()
+  
+  # filter to only include the US, the monthly data, and purchase only data
+  dat <- dat %>% filter(
+    place_id   == "USA" & 
+    frequency  == "monthly" &
+    hpi_flavor == "purchase-only"
+  )
+
+  # clean the measure names and column names, and drop unnecessary columns
+  dat <- dat %>% select(
+    year                                = yr, 
+    month                               = period, 
+    us_housing_price_index_non_seas_adj = index_nsa, 
+    us_housing_price_index_seas_adj     = index_sa
+  )
+  
+  dat
+}
+
 # Define a function for joining monthly data to the final analysis dataset
 prepare_monthly_analysis <- function(
-  monthly_orders, employment, oecd, federal_funds_rate, field_grown_tomato_price
+  monthly_orders, employment, oecd, federal_funds_rate, 
+  field_grown_tomato_price, housing_price_index
 ) {
   
   # join the orders with the employment data
-  dat <- monthly_orders %>% inner_join(employment, by = c(
+  dat <- monthly_orders %>% full_join(employment, by = c(
     "planned_delivery_month_num" = "month",
     "planned_delivery_year"      = "year"))
   
   # join with the oecd CCI and BCI data
-  dat <- dat %>% inner_join(oecd, by = c(
+  dat <- dat %>% full_join(oecd, by = c(
     "planned_delivery_month_num" = "month",
     "planned_delivery_year"      = "year"
   ))
   
   # join with the federal funds rate data
-  dat <- dat %>% inner_join(federal_funds_rate, by = c(
+  dat <- dat %>% full_join(federal_funds_rate, by = c(
     "planned_delivery_month_num" = "month",
     "planned_delivery_year"      = "year"
   ))
   
   # join with the us city avg field grown tomato price data
-  dat <- dat %>% inner_join(field_grown_tomato_price, by = c(
+  dat <- dat %>% full_join(field_grown_tomato_price, by = c(
+    "planned_delivery_month_num" = "month",
+    "planned_delivery_year"      = "year"
+  ))
+  
+  # join with the housing price index data
+  dat <- dat %>% full_join(housing_price_index, by = c(
     "planned_delivery_month_num" = "month",
     "planned_delivery_year"      = "year"
   ))
