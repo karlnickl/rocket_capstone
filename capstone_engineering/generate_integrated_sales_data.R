@@ -42,6 +42,9 @@ raw_tomato_price_path <- "data/raw/tomato_cpi"
 # path to save us city avg field grown tomato price data
 clean_tomato_price_path <- "data/pipeline/us_city_field_grown_tomato_price.rds"
 
+# path to raw housing price index data
+raw_housing_price_index_path <- "data/raw/HPI_master.csv"
+
 # Prepare the Sholle IPN Orders Dataset  ---------------------------------------
 
 # read the raw order data
@@ -108,12 +111,21 @@ city_field_grown_tomato_price_dat <-
 
 write_rds(city_field_grown_tomato_price_dat, clean_tomato_price_path)
 
+# Prepare the housing price index data  ----------------------------------------
+
+# read the raw housing price index data
+housing_price_index_dat <- 
+  read_housing_price_index(raw_housing_price_index_path)
+
+# clean and prepare the data
+housing_price_index_dat <- clean_housing_price_index(housing_price_index_dat)
+
 # Prepare the final integrated monthly analysis datasets  ----------------------
 
 # join the monthly orders with the employment data
 monthly_analysis_dat <- prepare_monthly_analysis(
   monthly_orders_dat, employment_dat, oecd_dat, fed_fund_rate_dat, 
-  city_field_grown_tomato_price_dat
+  city_field_grown_tomato_price_dat, housing_price_index_dat
 )
 
 
