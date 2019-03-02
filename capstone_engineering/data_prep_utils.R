@@ -4,7 +4,7 @@
 library(tidyverse)  # tidyverse, for data manipulation
 library(readxl)  # for loading excel files
 library(stringr)  # for managing strings
-library(janitor)  # for clenaing data
+#library(janitor)  # for clenaing data
 library(lubridate)  # for manipulating dates
 library(reshape2)  # for reshaping data
 
@@ -160,6 +160,14 @@ read_housing_price_index <- function(path = "data/raw/HPI_master.csv") {
   
   # read the raw data
   dat <- read_csv(path)
+}
+
+# Define a function for reading raw Invesco DB Agriculture (DBA) Price Data
+read_dba <- function(path = "data/raw/DBA.csv") {
+  
+  dat <- read_csv(path)
+  
+  dat
 }
 
 # Define functions for preparing clean datasets  ###############################
@@ -364,10 +372,28 @@ clean_housing_price_index <- function(data) {
   dat
 }
 
+# Define a function to clean the Invesco DBA data
+clean_dba <- function(data) {
+  
+  dat <- data
+  
+  dat <- dat %>% mutate(
+    month = month(Date),
+    year  = year(Date)
+  )
+  
+  dat <- dat %>% select(
+    year, month,
+    open_dba_price = Open
+  )
+  
+  dat
+}
+
 # Define a function for joining monthly data to the final analysis dataset
 prepare_monthly_analysis <- function(
   monthly_orders, employment, oecd, federal_funds_rate, 
-  field_grown_tomato_price, housing_price_index
+  field_grown_tomato_price, housing_price_index, invesco_dba
 ) {
   
   # join the orders with the employment data
@@ -395,6 +421,11 @@ prepare_monthly_analysis <- function(
   
   # join with the housing price index data
   dat <- dat %>% full_join(housing_price_index, by = c(
+    "planned_delivery_month_num" = "month",
+    "planned_delivery_year"      = "year"
+  ))
+  
+  dat <- dat %>% full_join(invesco_dba, by = c(
     "planned_delivery_month_num" = "month",
     "planned_delivery_year"      = "year"
   ))

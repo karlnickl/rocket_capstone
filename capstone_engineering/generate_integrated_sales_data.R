@@ -45,6 +45,9 @@ clean_tomato_price_path <- "data/pipeline/us_city_field_grown_tomato_price.rds"
 # path to raw housing price index data
 raw_housing_price_index_path <- "data/raw/HPI_master.csv"
 
+# path to raw Invesco DB Agriculture ETF Pricing data
+raw_dba_path <- "data/raw/DBA.csv"
+
 # Prepare the Sholle IPN Orders Dataset  ---------------------------------------
 
 # read the raw order data
@@ -120,12 +123,18 @@ housing_price_index_dat <-
 # clean and prepare the data
 housing_price_index_dat <- clean_housing_price_index(housing_price_index_dat)
 
+# Prepare the Invesco DBA data  ------------------------------------------------
+invesco_dba_dat <- read_dba(raw_dba_path)
+
+# clean and prepare the data
+invesco_dba_dat <- clean_dba(invesco_dba_dat)
+
 # Prepare the final integrated monthly analysis datasets  ----------------------
 
 # join the monthly orders with the employment data
 monthly_analysis_dat <- prepare_monthly_analysis(
   monthly_orders_dat, employment_dat, oecd_dat, fed_fund_rate_dat, 
-  city_field_grown_tomato_price_dat, housing_price_index_dat
+  city_field_grown_tomato_price_dat, housing_price_index_dat, invesco_dba_dat
 )
 
 
